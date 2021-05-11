@@ -116,6 +116,18 @@
 	BOOT_TARGET_USB(func)		\
 	BOOT_TARGET_PXE(func)
 
+#define STM32MP_NORMAL_CMD "bootcmd_stm32mp_normal=" \
+    "load mmc 0:7 ${fdt_addr_r} boot/stm32mp157c-ev1.dtb;" \
+    "load mmc 0:7 ${kernel_addr_r} boot/uImage;" \
+    "setenv bootargs 'root=/dev/mmcblk0p8 rootwait rw console=ttySTM0,115200';" \
+    "bootm ${kernel_addr_r} - ${fdt_addr_r};\0"
+
+#define STM32MP_EFICMD "bootcmd_stm32mp_efi=" \
+    "load mmc 0:7 ${fdt_addr_r} boot/stm32mp157c-ev1.dtb;" \
+    "load mmc 0:7 ${kernel_addr_r} boot/zImage.efi;" \
+    "setenv bootargs 'root=/dev/mmcblk0p8 rootwait rw console=ttySTM0,115200';" \
+    "bootefi ${kernel_addr_r} ${fdt_addr_r};\0"
+
 /*
  * bootcmd for stm32mp1:
  * for serial/usb: execute the stm32prog command
@@ -169,7 +181,9 @@
 	"altbootcmd=run bootcmd\0" \
 	"env_check=if env info -p -d -q; then env save; fi\0" \
 	STM32MP_BOOTCMD \
+	STM32MP_NORMAL_CMD \
 	PARTS_DEFAULT \
+	STM32MP_EFICMD \
 	BOOTENV \
 	"boot_net_usb_start=true\0"
 
