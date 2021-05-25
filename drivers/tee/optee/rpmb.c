@@ -41,9 +41,18 @@ struct rpmb_dev_info {
 #define RPMB_CMD_GET_DEV_INFO_RET_ERROR  0x01
 };
 
+#define RPMB_FRAME_SIZE 512
+#define RPMB_FRAME_BUFFER_SIZE (RPMB_FRAME_SIZE + sizeof(struct rpmb_req))
+static void* rpmb_frame_buffer;
+
 static void release_mmc(struct optee_private *priv)
 {
 	int rc;
+
+	if (rpmb_frame_buffer){
+		free(rpmb_frame_buffer);
+		rpmb_frame_buffer = NULL;
+	}
 
 	if (!priv->rpmb_mmc)
 		return;
@@ -61,6 +70,7 @@ static struct mmc *get_mmc(struct optee_private *priv, int dev_id)
 {
 	struct mmc *mmc;
 	int rc;
+
 
 	if (priv->rpmb_mmc && priv->rpmb_dev_id == dev_id)
 		return priv->rpmb_mmc;
@@ -89,6 +99,10 @@ static struct mmc *get_mmc(struct optee_private *priv, int dev_id)
 		debug("Device id %d: cannot select RPMB partition: %d\n",
 		      dev_id, rc);
 		return NULL;
+	}
+
+	if (!rpmb_frame_buffer){
+		rpmb_frame_buffer = malloc(RPMB_FRAME_BUFFER_SIZE);
 	}
 
 	priv->rpmb_mmc = mmc;
@@ -131,8 +145,12 @@ static u32 rpmb_process_request(struct optee_private *priv, void *req,
 		mmc = get_mmc(priv, sreq->dev_id);
 		if (!mmc)
 			return TEE_ERROR_ITEM_NOT_FOUND;
-		if (mmc_rpmb_route_frames(mmc, RPMB_REQ_DATA(req),
-					  req_size - sizeof(struct rpmb_req),
+
+		if (!rpmb_frame_buffer)
+			return TEE_ERROR_GENERIC;
+		memcpy(rpmb_frame_buffer, RPMB_REQ_DATA(req), RPMB_FRAME_SIZE);
+
+		if (mmc_rpmb_route_frames(mmc, rpmb_frame_buffer, RPMB_FRAME_SIZE,
 					  rsp, rsp_size))
 			return TEE_ERROR_BAD_PARAMETERS;
 		return TEE_SUCCESS;
