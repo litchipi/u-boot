@@ -122,6 +122,10 @@ static u32 rpmb_process_request(struct optee_private *priv, void *req,
 {
 	struct rpmb_req *sreq = req;
 	struct mmc *mmc;
+	void *rpmb_data;
+	void *rpmb_frame_buffer = NULL;
+	size_t rpmb_data_sz;
+	int ret;
 
 	if (req_size < sizeof(*sreq))
 		return TEE_ERROR_BAD_PARAMETERS;
@@ -131,9 +135,23 @@ static u32 rpmb_process_request(struct optee_private *priv, void *req,
 		mmc = get_mmc(priv, sreq->dev_id);
 		if (!mmc)
 			return TEE_ERROR_ITEM_NOT_FOUND;
-		if (mmc_rpmb_route_frames(mmc, RPMB_REQ_DATA(req),
-					  req_size - sizeof(struct rpmb_req),
-					  rsp, rsp_size))
+
+		rpmb_data = RPMB_REQ_DATA(req);
+		rpmb_data_sz = req_size - sizeof(struct rpmb_req);
+		if (!IS_ALIGNED((uintptr_t)rpmb_data, sizeof(u32))) {
+			/* 32bit data alignment is required by RPMB driver */
+			rpmb_frame_buffer = malloc(rpmb_data_sz);
+			if (!rpmb_frame_buffer)
+				return TEE_ERROR_OUT_OF_MEMORY;
+
+			memcpy(rpmb_frame_buffer, rpmb_data, rpmb_data_sz);
+			rpmb_data = rpmb_frame_buffer;
+		}
+
+		ret = mmc_rpmb_route_frames(mmc, rpmb_data, rpmb_data_sz,
+					    rsp, rsp_size);
+		free(rpmb_frame_buffer);
+		if (ret)
 			return TEE_ERROR_BAD_PARAMETERS;
 		return TEE_SUCCESS;
 
