@@ -198,11 +198,25 @@ static int mmc_select_mode(struct mmc *mmc, enum bus_mode mode)
 int mmc_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd, struct mmc_data *data)
 {
 	int ret;
+	size_t buffer_len;
+	void* data_buffer = NULL;
+
+	if (!IS_ALIGNED((uintptr_t)data->src, sizeof(u32))) {
+		/* 32bit data alignment is required by RPMB driver */
+		buffer_len = data->blocksize*data->blockcount;
+		data_buffer = malloc(buffer_len);
+		if (!data_buffer)
+			return TEE_ERROR_OUT_OF_MEMORY;
+
+		memcpy(data_buffer, data->src, buffer_len);
+		data->src = data_buffer;
+	}
 
 	mmmc_trace_before_send(mmc, cmd);
 	ret = mmc->cfg->ops->send_cmd(mmc, cmd, data);
 	mmmc_trace_after_send(mmc, cmd, ret);
 
+	free(data_buffer);
 	return ret;
 }
 #endif
