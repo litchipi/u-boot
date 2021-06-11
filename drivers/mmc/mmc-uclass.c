@@ -42,10 +42,10 @@ int dm_mmc_send_cmd(struct udevice *dev, struct mmc_cmd *cmd,
 
 	if (!IS_ALIGNED((uintptr_t)data->src, sizeof(u32))) {
 		/* 32bit data alignment is required by RPMB driver */
-		buffer_len = data->blocksize*data->blockcount;
+		buffer_len = data->blocksize*data->blocks;
 		data_buffer = malloc(buffer_len);
 		if (!data_buffer)
-			return TEE_ERROR_OUT_OF_MEMORY;
+			return -ENOMEM;
 
 		memcpy(data_buffer, data->src, buffer_len);
 		data->src = data_buffer;
